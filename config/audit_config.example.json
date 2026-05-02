@@ -1,0 +1,6 @@
+{
+  "apps": ["words", "spelling"],
+  "default_limit": 200,
+  "max_findings_per_run": 5000,
+  "schema_discovery_output": "reports/schema-discovery-latest.json"
+}

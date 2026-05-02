@@ -1,0 +1,22 @@
+{
+  "spelling": [
+    "public.spelling_courses",
+    "public.spelling_lessons",
+    "public.spelling_lesson_items",
+    "public.spelling_words",
+    "public.spelling_attempts",
+    "public.spelling_pattern_stats"
+  ],
+  "words_candidates": [
+    "public.courses",
+    "public.lessons",
+    "public.lesson_words",
+    "public.words",
+    "public.words_attempts",
+    "public.words_courses",
+    "public.words_lessons",
+    "public.words_lesson_words",
+    "public.words_word_stats",
+    "public.words_words"
+  ]
+}

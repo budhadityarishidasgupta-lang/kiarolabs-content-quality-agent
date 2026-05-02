@@ -1,0 +1,5 @@
+{
+  "strong_recommendation": 0.95,
+  "human_review": 0.8,
+  "informational": 0.6
+}

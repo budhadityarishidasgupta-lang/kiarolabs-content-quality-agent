@@ -1,0 +1,12 @@
+{
+  "words.synonym_semantic_closeness": "degraded",
+  "words.antonym_semantic_opposition": "degraded",
+  "words.compound_age_appropriateness": "skipped_if_no_llm",
+  "words.ambiguous_headword_detection": "skipped_if_no_llm",
+  "words.distractor_plausibility": "degraded",
+  "spelling.pattern_assignment": "deterministic_only",
+  "spelling.hint_relevance": "degraded",
+  "spelling.example_relevance": "degraded",
+  "spelling.pattern_outlier_detection": "deterministic_only",
+  "spelling.irregular_spelling_review": "skipped_if_no_llm"
+}
