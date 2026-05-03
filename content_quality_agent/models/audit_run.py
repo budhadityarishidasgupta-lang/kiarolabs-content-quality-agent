@@ -14,6 +14,7 @@ class AuditRun:
     mode: str
     dry_run: bool
     started_at: str
+    completed_at: str | None
     reports_dir: str
     llm_available: bool
     findings: list[Finding] = field(default_factory=list)

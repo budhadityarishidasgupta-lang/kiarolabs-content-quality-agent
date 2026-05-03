@@ -1,0 +1,7 @@
+{
+  "max_mixed_content_findings": 25,
+  "emit_candidate_relation_evidence": true,
+  "weak_synonym_requires_relation_confidence": 0.8,
+  "mixed_content_unclear_severity": "medium",
+  "schema_unclear_should_not_collapse_score": true
+}

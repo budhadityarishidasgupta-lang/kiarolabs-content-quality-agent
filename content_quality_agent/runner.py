@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 import json
+import secrets
 
 from content_quality_agent.auditors.spelling_auditor import audit_spelling
 from content_quality_agent.auditors.words_auditor import audit_words
@@ -18,8 +19,9 @@ from content_quality_agent.reports.diff import build_diff
 from content_quality_agent.reports.writer import write_reports
 
 
-def _now_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("audit-%Y%m%d-%H%M%S")
+def generate_run_id(now: datetime | None = None) -> str:
+    current = now or datetime.now(timezone.utc)
+    return f"{current.strftime('audit-%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}"
 
 
 def _previous_findings(reports_dir: Path) -> list[dict] | None:
@@ -40,10 +42,11 @@ def run_audit(*, config, mode: str, lesson_id: int | None = None, pattern_id: in
         raise RuntimeError("CONTENT_AUDIT_DB_URL is required for audit execution.")
 
     run = AuditRun(
-        run_id=_now_run_id(),
+        run_id=generate_run_id(),
         mode=mode,
         dry_run=dry_run,
         started_at=datetime.now(timezone.utc).isoformat(),
+        completed_at=None,
         reports_dir=str(config.reports_dir),
         llm_available=bool(config.openai_api_key),
     )
@@ -65,6 +68,7 @@ def run_audit(*, config, mode: str, lesson_id: int | None = None, pattern_id: in
             run.coverage.skip_reasons.append(
                 f"Dry-run only validates connectivity, allowlists, and requested scope for mode={mode}, lesson_id={lesson_id}, pattern_id={pattern_id}, since={since}, limit={limit}."
             )
+            run.completed_at = datetime.now(timezone.utc).isoformat()
             payload = _serialize_run(run)
             diff = build_diff(payload["findings"], _previous_findings(config.reports_dir))
             write_reports(reports_dir=config.reports_dir, run_id=run.run_id, run_payload=payload, diff_payload=diff)
@@ -134,6 +138,7 @@ def run_audit(*, config, mode: str, lesson_id: int | None = None, pattern_id: in
         run.coverage.semantic_coverage_pct = 100.0 if config.openai_api_key else 0.0
         run.coverage.overall_coverage_pct = (run.coverage.deterministic_coverage_pct + run.coverage.semantic_coverage_pct) / 2
 
+        run.completed_at = datetime.now(timezone.utc).isoformat()
         payload = _serialize_run(run)
         diff = build_diff(payload["findings"], _previous_findings(config.reports_dir))
         write_reports(reports_dir=config.reports_dir, run_id=run.run_id, run_payload=payload, diff_payload=diff)

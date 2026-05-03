@@ -1,0 +1,16 @@
+{
+  "suppressions": [
+    {
+      "issue_type": "hint_relevance_weak",
+      "word": "adventure",
+      "current_value_contains": "cher",
+      "reason": "pronunciation clue is valid for URE words"
+    },
+    {
+      "issue_type": "hint_relevance_weak",
+      "word": "biology",
+      "current_value_contains": "life",
+      "reason": "root meaning clue is valid"
+    }
+  ]
+}

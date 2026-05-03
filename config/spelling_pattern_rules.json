@@ -1,0 +1,69 @@
+{
+  "course_pattern_cleanup_scope": {
+    "enabled_course_ids": [9],
+    "excluded_course_ids": [1],
+    "reason": "course_id=9 contains pattern lessons; course_id=1 contains normal spelling sets and must not be pattern-normalized"
+  },
+  "canonical_patterns": {
+    "TION": "\"TION\" pattern Words",
+    "SION": "\"SION\" pattern Words",
+    "SSION": "\"SSION\" pattern Words",
+    "URE": "\"URE\" pattern Words",
+    "PH": "\"PH\" pattern Words",
+    "DGE": "\"DGE\" pattern Words",
+    "FUL/LESS": "\"FUL/LESS\" pattern Words",
+    "SHIP": "\"SHIP\" pattern Words",
+    "HOOD": "\"HOOD\" pattern Words",
+    "CIDE": "\"CIDE\" pattern Words",
+    "OLOGY": "\"OLOGY\" pattern Words",
+    "INESS": "\"INESS\" pattern Words",
+    "ING": "\"ING\" pattern Words",
+    "LY": "\"LY\" pattern Words",
+    "OUS": "\"OUS\" pattern Words",
+    "OUR": "\"OUR\" pattern Words",
+    "OR": "\"OR\" pattern Words",
+    "IC": "\"IC\" pattern Words",
+    "CH": "\"CH\" pattern Words",
+    "GH": "\"GH\" pattern Words",
+    "C": "\"C\" pattern Words",
+    "D/ED": "\"D/ED\" pattern Words",
+    "P'S": "\"P'S\" pattern Words"
+  },
+  "priority_suffix_rules": [
+    {"suffix": "ssion", "pattern": "SSION", "confidence": 0.99},
+    {"suffix": "tion", "pattern": "TION", "confidence": 0.98},
+    {"suffix": "sion", "pattern": "SION", "confidence": 0.96},
+    {"suffix": "ship", "pattern": "SHIP", "confidence": 0.98},
+    {"suffix": "hood", "pattern": "HOOD", "confidence": 0.98},
+    {"suffix": "cide", "pattern": "CIDE", "confidence": 0.98},
+    {"suffix": "ology", "pattern": "OLOGY", "confidence": 0.98},
+    {"suffix": "iness", "pattern": "INESS", "confidence": 0.98},
+    {"suffix": "ure", "pattern": "URE", "confidence": 0.95},
+    {"suffix": "ful", "pattern": "FUL/LESS", "confidence": 0.96},
+    {"suffix": "less", "pattern": "FUL/LESS", "confidence": 0.96}
+  ],
+  "contains_rules": [
+    {"contains": "dge", "pattern": "DGE", "confidence": 0.97},
+    {"contains": "ph", "pattern": "PH", "confidence": 0.93},
+    {"contains": "ch", "pattern": "CH", "confidence": 0.91},
+    {"contains": "gh", "pattern": "GH", "confidence": 0.90}
+  ],
+  "hint_clue_rules": [
+    {"hint_contains": "cher", "pattern": "URE", "confidence": 0.60, "reason": "pronunciation clue"},
+    {"hint_contains": "unstressed", "pattern": "URE", "confidence": 0.60, "reason": "pronunciation clue"},
+    {"hint_contains": "life", "pattern": "OLOGY", "confidence": 0.60, "reason": "root meaning clue"},
+    {"hint_contains": "silent", "pattern": "GH", "confidence": 0.60, "reason": "silent-letter clue"}
+  ],
+  "low_confidence_rules": [
+    {"suffix": "ing", "pattern": "ING", "confidence": 0.88},
+    {"suffix": "ly", "pattern": "LY", "confidence": 0.86},
+    {"suffix": "ous", "pattern": "OUS", "confidence": 0.90},
+    {"suffix": "our", "pattern": "OUR", "confidence": 0.90},
+    {"suffix": "or", "pattern": "OR", "confidence": 0.82},
+    {"suffix": "ic", "pattern": "IC", "confidence": 0.82},
+    {"suffix": "ed", "pattern": "D/ED", "confidence": 0.78},
+    {"contains": "c", "pattern": "C", "confidence": 0.70},
+    {"contains": "'", "pattern": "P'S", "confidence": 0.65},
+    {"contains": "ps", "pattern": "P'S", "confidence": 0.65}
+  ]
+}

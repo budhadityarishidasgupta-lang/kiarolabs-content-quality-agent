@@ -1,12 +1,24 @@
 import unittest
+from pathlib import Path
 
 from content_quality_agent.intelligence.pattern_detector import detect_spelling_pattern
+from content_quality_agent.intelligence.spelling_rules import load_spelling_rules
 
 
 class PatternDetectorTests(unittest.TestCase):
-    def assert_pattern(self, word: str, expected: str, hint: str | None = None):
-        result = detect_spelling_pattern(word, hint=hint)
+    def assert_pattern(self, word: str, expected: str, hint: str | None = None, rules: dict | None = None):
+        result = detect_spelling_pattern(word, hint=hint, rules=rules)
         self.assertEqual(result.canonical_lesson_name, expected)
+
+    def test_pattern_detector_loads_json_config(self):
+        rules = load_spelling_rules(Path(__file__).resolve().parents[1] / "config")
+        result = detect_spelling_pattern("action", rules=rules)
+        self.assertIn("config_rule:priority_suffix_rules", result.evidence)
+
+    def test_pattern_detector_falls_back_when_config_missing(self):
+        rules = load_spelling_rules(Path(__file__).resolve().parent / "_missing_config")
+        result = detect_spelling_pattern("physics", rules=rules)
+        self.assertEqual(result.canonical_lesson_name, '"PH" pattern Words')
 
     def test_action_maps_to_tion(self):
         self.assert_pattern("action", '"TION" pattern Words')

@@ -10,9 +10,16 @@ class CoverageReport:
     total_records_discovered: int = 0
     records_checked: int = 0
     records_skipped: int = 0
+    suppressed_findings: int = 0
+    capped_findings: int = 0
     checks_run: list[str] = field(default_factory=list)
     checks_skipped: list[str] = field(default_factory=list)
     skip_reasons: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    words_schema_classification: str | None = None
+    words_schema_confidence: float = 0.0
+    words_audit_partial: bool = False
+    schema_unclear_should_not_collapse_score: bool = False
     llm_available: bool = False
     deterministic_coverage_pct: float = 0.0
     semantic_coverage_pct: float = 0.0

@@ -5,7 +5,12 @@ from __future__ import annotations
 from collections import defaultdict
 import re
 
+from content_quality_agent.intelligence.false_positive_filter import load_false_positive_allowlist, should_suppress_finding
 from content_quality_agent.intelligence.pattern_detector import detect_spelling_pattern
+from content_quality_agent.intelligence.spelling_rules import (
+    is_course_in_pattern_cleanup_scope,
+    load_spelling_rules,
+)
 from content_quality_agent.intelligence.semantic_evidence import build_rule_evidence, tokenize
 from content_quality_agent.models.finding import Finding
 
@@ -75,9 +80,10 @@ def _word_matches_lesson_pattern(word: str, label: str) -> bool:
     return True
 
 
-def _hint_is_relevant(word: str, hint: str, lesson_label: str) -> bool:
+def _hint_is_relevant(word: str, hint: str, lesson_label: str, rules: dict | None = None) -> bool:
     if not hint:
         return True
+    active_rules = rules or load_spelling_rules()
     hint_lower = hint.lower()
     word_lower = (word or "").lower()
     canonical = _canonical_pattern_tokens(lesson_label)
@@ -95,11 +101,24 @@ def _hint_is_relevant(word: str, hint: str, lesson_label: str) -> bool:
     for root, clues in ROOT_HINT_PATTERNS.items():
         if root in word_lower and any(clue in hint_lower for clue in clues):
             return True
+    for rule in active_rules.get("hint_clue_rules", []):
+        token = rule.get("hint_contains", "")
+        pattern = str(rule.get("pattern", "")).strip().upper()
+        if not token or token not in hint_lower:
+            continue
+        if pattern and (pattern in canonical or rule.get("pattern", "").lower() in lesson_label.lower()):
+            return True
     return False
 
 
 def audit_spelling(*, run_id: str, repository, coverage, limit: int | None = None) -> list[Finding]:
     findings: list[Finding] = []
+    spelling_rules = load_spelling_rules()
+    false_positive_allowlist = load_false_positive_allowlist()
+    scope_reason = spelling_rules.get("course_pattern_cleanup_scope", {}).get("reason", "")
+    coverage.notes.append("Pattern lesson-name correction checks scoped to course_id=9 only.")
+    if scope_reason:
+        coverage.notes.append(scope_reason)
     rows = repository.query(
         """
         SELECT
@@ -140,14 +159,16 @@ def audit_spelling(*, run_id: str, repository, coverage, limit: int | None = Non
     for word_id, course_id, word, hint, example_sentence, lesson_id, lesson_name, display_name in rows:
         patterns = _extract_patterns(word)
         effective_label = display_name or lesson_name
-        detector_result = detect_spelling_pattern(word, hint=hint, current_pattern=effective_label)
-        pattern_mismatch = not _word_matches_lesson_pattern(word, effective_label)
-        if course_id == 9 and detector_result.detected_pattern and detector_result.canonical_lesson_name != effective_label:
-            pattern_mismatch = True
+        detector_result = detect_spelling_pattern(word, hint=hint, current_pattern=effective_label, rules=spelling_rules)
+        pattern_mismatch = False
+        if is_course_in_pattern_cleanup_scope(course_id, spelling_rules):
+            pattern_mismatch = not _word_matches_lesson_pattern(word, effective_label)
+            if detector_result.detected_pattern and detector_result.canonical_lesson_name != effective_label:
+                pattern_mismatch = True
         if pattern_mismatch:
             suggested_fix = (
                 f"Move '{word}' to {detector_result.canonical_lesson_name}."
-                if course_id == 9 and detector_result.canonical_lesson_name != "UNASSIGNED"
+                if is_course_in_pattern_cleanup_scope(course_id, spelling_rules) and detector_result.canonical_lesson_name != "UNASSIGNED"
                 else f"Review whether '{word}' belongs in lesson '{effective_label}'."
             )
             findings.append(
@@ -168,13 +189,13 @@ def audit_spelling(*, run_id: str, repository, coverage, limit: int | None = Non
                     explanation="Detected spelling pattern in word does not match the normalized lesson pattern." if detector_result.canonical_lesson_name == "UNASSIGNED" else f"Detected spelling pattern suggests {detector_result.canonical_lesson_name}, which does not match the current lesson.",
                     evidence=build_rule_evidence(
                         sources=["public.spelling_words.word", "public.spelling_lessons.display_name"],
-                        top_alternatives=list(dict.fromkeys([*patterns, *( [detector_result.detected_pattern.lower()] if detector_result.detected_pattern else [] )])),
+                        top_alternatives=list(dict.fromkeys([*patterns, *([detector_result.detected_pattern.lower()] if detector_result.detected_pattern else [])])),
                         rule_checks=["word_pattern_missing_from_normalized_lesson_label", *detector_result.evidence],
                     ),
                     human_review_required=True,
                 )
             )
-        if hint and not _hint_is_relevant(word, hint, effective_label):
+        if hint and not _hint_is_relevant(word, hint, effective_label, spelling_rules):
             findings.append(
                 Finding(
                     run_id=run_id,
@@ -280,4 +301,19 @@ def audit_spelling(*, run_id: str, repository, coverage, limit: int | None = Non
                 )
             )
 
-    return findings
+    filtered: list[Finding] = []
+    suppressed_reasons: list[str] = []
+    for finding in findings:
+        suppressed, reason = should_suppress_finding(finding, false_positive_allowlist)
+        if suppressed:
+            coverage.suppressed_findings += 1
+            if reason:
+                suppressed_reasons.append(reason)
+            continue
+        filtered.append(finding)
+
+    if coverage.suppressed_findings:
+        unique_reasons = ", ".join(sorted(set(suppressed_reasons))) if suppressed_reasons else "allowlist matches"
+        coverage.notes.append(f"{coverage.suppressed_findings} findings suppressed by allowlist ({unique_reasons}).")
+
+    return filtered

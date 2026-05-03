@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import json
+
+from content_quality_agent.reports.atomic_write import atomic_write_json
 
 
 @dataclass
@@ -87,5 +88,5 @@ def discover_tables(conn, candidate_allowlist: dict, output_path: Path) -> Disco
         table_columns=table_columns,
         notes=notes,
     )
-    output_path.write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
+    atomic_write_json(output_path, result.to_dict())
     return result
