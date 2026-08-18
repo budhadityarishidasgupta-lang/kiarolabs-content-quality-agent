@@ -1,0 +1,93 @@
+name: Content Quality Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Which product content should be audited?"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - vr
+          - math
+          - spelling
+          - words
+      limit:
+        description: "Optional record limit for a smaller audit (leave blank for full audit)"
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: "Only validate connectivity/schema without scanning content"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  CONTENT_AUDIT_REPORTS_DIR: reports
+
+jobs:
+  audit:
+    name: Run ${{ inputs.mode }} audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout audit agent
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run audit
+        env:
+          CONTENT_AUDIT_DB_URL: ${{ secrets.CONTENT_AUDIT_DB_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--mode "${{ inputs.mode }}")
+          if [ -n "${{ inputs.limit }}" ]; then
+            args+=(--limit "${{ inputs.limit }}")
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          python -m content_quality_agent.cli "${args[@]}"
+
+      - name: Publish audit summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Kiarolabs Content Quality Audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Mode: **${{ inputs.mode }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Audit-only: **Yes**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database/content changes applied: **0**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Human review required before any correction: **Yes**" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f reports/content-quality-latest.md ]; then
+            cat reports/content-quality-latest.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No Markdown report was generated. Inspect the workflow log for the blocking error." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-quality-audit-${{ inputs.mode }}-${{ github.run_number }}
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 30
