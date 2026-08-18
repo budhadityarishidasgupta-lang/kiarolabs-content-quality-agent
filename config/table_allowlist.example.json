@@ -18,5 +18,17 @@
     "public.words_lesson_words",
     "public.words_word_stats",
     "public.words_words"
+  ],
+  "math": [
+    "public.math_questions",
+    "public.math_lessons",
+    "public.math_attempts",
+    "public.math_question_stats"
+  ],
+  "vr": [
+    "public.vr_papers",
+    "public.vr_questions",
+    "public.vr_answers",
+    "public.vr_attempts"
   ]
 }
