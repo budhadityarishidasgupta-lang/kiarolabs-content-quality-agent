@@ -13,6 +13,10 @@ class DiscoveryResult:
     spelling_tables: list[str]
     words_tables: list[str]
     words_discovery_confident: bool
+    math_tables: list[str]
+    math_discovery_confident: bool
+    vr_tables: list[str]
+    vr_discovery_confident: bool
     table_columns: dict[str, list[str]]
     notes: list[str]
 
@@ -21,6 +25,10 @@ class DiscoveryResult:
             "spelling_tables": self.spelling_tables,
             "words_tables": self.words_tables,
             "words_discovery_confident": self.words_discovery_confident,
+            "math_tables": self.math_tables,
+            "math_discovery_confident": self.math_discovery_confident,
+            "vr_tables": self.vr_tables,
+            "vr_discovery_confident": self.vr_discovery_confident,
             "table_columns": self.table_columns,
             "notes": self.notes,
         }
@@ -28,52 +36,49 @@ class DiscoveryResult:
 
 def discover_tables(conn, candidate_allowlist: dict, output_path: Path) -> DiscoveryResult:
     with conn.cursor() as cur:
-        cur.execute(
-            """
+        cur.execute("""
             SELECT table_schema, table_name
             FROM information_schema.tables
             WHERE table_schema = 'public'
             ORDER BY table_name ASC
-            """
-        )
+        """)
         present = {f"{schema}.{name}" for schema, name in cur.fetchall()}
 
-        cur.execute(
-            """
+        cur.execute("""
             SELECT table_schema, table_name, column_name
             FROM information_schema.columns
             WHERE table_schema = 'public'
             ORDER BY table_name ASC, ordinal_position ASC
-            """
-        )
+        """)
         raw_columns = cur.fetchall()
 
-    spelling_tables = sorted(
-        table for table in present if table.startswith("public.spelling_")
-    )
+    spelling_tables = sorted(table for table in present if table.startswith("public.spelling_"))
 
     words_candidates = set(candidate_allowlist.get("words_candidates", []))
     words_tables = sorted(table for table in present if table in words_candidates)
-
-    required_word_markers = {
-        "public.courses",
-        "public.lessons",
-        "public.lesson_words",
-        "public.words",
-    }
-    legacy_word_markers = {
-        "public.words_courses",
-        "public.words_lessons",
-        "public.words_lesson_words",
-        "public.words_words",
-    }
+    required_word_markers = {"public.courses", "public.lessons", "public.lesson_words", "public.words"}
+    legacy_word_markers = {"public.words_courses", "public.words_lessons", "public.words_lesson_words", "public.words_words"}
     words_confident = bool(required_word_markers.issubset(set(words_tables)) or legacy_word_markers.issubset(set(words_tables)))
+
+    math_allowlist = set(candidate_allowlist.get("math", []))
+    math_tables = sorted(table for table in present if table in math_allowlist)
+    math_required = {"public.math_questions", "public.math_lessons"}
+    math_confident = math_required.issubset(set(math_tables))
+
+    vr_allowlist = set(candidate_allowlist.get("vr", []))
+    vr_tables = sorted(table for table in present if table in vr_allowlist)
+    vr_required = {"public.vr_papers", "public.vr_questions", "public.vr_answers"}
+    vr_confident = vr_required.issubset(set(vr_tables))
 
     notes: list[str] = []
     if not words_confident:
         notes.append("Could not confidently discover the full Words schema from the allowlisted candidate tables.")
+    if not math_confident:
+        notes.append("Math audit disabled: required math_* content tables were not confidently discovered.")
+    if not vr_confident:
+        notes.append("VR audit disabled: required vr_* content tables were not confidently discovered.")
 
-    tracked_tables = set(spelling_tables) | set(words_tables)
+    tracked_tables = set(spelling_tables) | set(words_tables) | set(math_tables) | set(vr_tables)
     table_columns: dict[str, list[str]] = {}
     for schema, table_name, column_name in raw_columns:
         fq_name = f"{schema}.{table_name}"
@@ -85,6 +90,10 @@ def discover_tables(conn, candidate_allowlist: dict, output_path: Path) -> Disco
         spelling_tables=spelling_tables,
         words_tables=words_tables,
         words_discovery_confident=words_confident,
+        math_tables=math_tables,
+        math_discovery_confident=math_confident,
+        vr_tables=vr_tables,
+        vr_discovery_confident=vr_confident,
         table_columns=table_columns,
         notes=notes,
     )
