@@ -11,10 +11,6 @@ TABLE_REF_RE = re.compile(
     r"\b(?:from|join)\s+([a-zA-Z_][\w]*)(?:\.([a-zA-Z_][\w]*))?",
     re.IGNORECASE,
 )
-UPDATE_REF_RE = re.compile(
-    r"^\s*update\s+([a-zA-Z_][\w]*)(?:\.([a-zA-Z_][\w]*))?",
-    re.IGNORECASE,
-)
 
 
 class GuardrailViolation(RuntimeError):
@@ -28,18 +24,18 @@ class GuardrailContext:
 
 
 class GuardrailEnforcer:
-    """Ensures phase-1 read-only database access."""
+    """Enforces permanent read-only database access and per-app isolation."""
 
-    def __init__(self, phase: str = "phase_1") -> None:
+    def __init__(self, phase: str = "audit_only") -> None:
         self.phase = phase
 
     def validate(self, sql: str, context: GuardrailContext) -> None:
         normalized = " ".join(sql.strip().split())
         lowered = normalized.lower()
         if not lowered.startswith("select "):
-            raise GuardrailViolation("Phase 1 blocks non-SELECT SQL.")
+            raise GuardrailViolation("Content audit agent blocks all non-SELECT SQL.")
         if any(keyword in lowered for keyword in WRITE_KEYWORDS):
-            raise GuardrailViolation("Phase 1 blocks write or DDL statements.")
+            raise GuardrailViolation("Content audit agent blocks all write or DDL statements.")
 
         referenced = self._extract_tables(normalized)
         if not referenced:
@@ -51,36 +47,21 @@ class GuardrailEnforcer:
                     f"Table '{table}' is not allowed for app '{context.app}'."
                 )
 
-        prefixes = {table.split(".", 1)[1].split("_", 1)[0] for table in referenced}
         if context.app == "spelling" and any(not table.startswith("public.spelling_") for table in referenced):
             raise GuardrailViolation("Spelling auditor may only read spelling_* tables.")
+        if context.app == "math" and any(not table.startswith("public.math_") for table in referenced):
+            raise GuardrailViolation("Math auditor may only read math_* tables.")
+        if context.app == "vr" and any(not table.startswith("public.vr_") for table in referenced):
+            raise GuardrailViolation("VR auditor may only read vr_* tables.")
         if context.app == "words":
-            if any(table.startswith("public.spelling_") for table in referenced):
-                raise GuardrailViolation("Words auditor may not read spelling_* tables.")
-            if len(prefixes) > 3:
-                raise GuardrailViolation("Potential cross-app read detected in words query.")
+            if any(table.startswith(("public.spelling_", "public.math_", "public.vr_")) for table in referenced):
+                raise GuardrailViolation("Words auditor may not read another app namespace.")
 
     def validate_mutation(self, sql: str, context: GuardrailContext) -> None:
-        normalized = " ".join(sql.strip().split())
-        lowered = normalized.lower()
-        if self.phase == "phase_1":
-            raise GuardrailViolation("Phase 1 blocks all write SQL.")
-        if not lowered.startswith("update "):
-            raise GuardrailViolation("Phase 2 fix workflow only allows UPDATE statements.")
-        if any(keyword in lowered for keyword in ("insert", "delete", "alter", "create", "drop", "truncate")):
-            raise GuardrailViolation("Phase 2 fix workflow only allows narrowly-scoped UPDATE statements.")
-
-        match = UPDATE_REF_RE.match(normalized)
-        if not match:
-            raise GuardrailViolation("Mutation query did not reference an allowed table explicitly.")
-
-        left = match.group(1)
-        right = match.group(2)
-        table = f"{left.lower()}.{right.lower()}" if right else f"public.{left.lower()}"
-        if table not in context.allowed_tables:
-            raise GuardrailViolation(f"Table '{table}' is not allowed for app '{context.app}'.")
-        if context.app != "spelling" or table != "public.spelling_words":
-            raise GuardrailViolation("Phase 2 spelling fixes may only update public.spelling_words.")
+        raise GuardrailViolation(
+            "Content quality agent is audit-only. Database mutations are permanently disabled; "
+            "human-approved corrections must use the owning app's CSV/admin ingestion workflow."
+        )
 
     def _extract_tables(self, sql: str) -> set[str]:
         tables: set[str] = set()
